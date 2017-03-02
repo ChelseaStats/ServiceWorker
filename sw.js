@@ -32,6 +32,9 @@ const CACHE_FILES_PRIORITY = [
     'offline.html',
 ];
 
+const CACHE_FILES_BACKGROUND = [
+     'images/animated.gif'
+ ];
 
 /**
  * Update the cache with the files specified in `CACHE_FILES_PRIORITY`
