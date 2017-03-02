@@ -46,7 +46,16 @@ const updateCache = () => {
         });
 };
 
-
+function createCacheBustedRequest(url) {
+  let request = new Request(url, {cache: 'reload'});
+  // See https://fetch.spec.whatwg.org/#concept-request-mode
+  // This is not yet supported in Chrome as of M48, so we need to explicitly check to see
+  // if the cache: 'reload' option had any effect.
+  if ('cache' in request) {
+    return request;
+  }
+    
+    
 /**
  * Any request that comes through we will be serving it from the cache.
  * If a request isn't in the cache, we serve `offline.html` instead.
