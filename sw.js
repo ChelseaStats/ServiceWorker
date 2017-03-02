@@ -124,28 +124,56 @@ self.addEventListener('install', event => {
 });
 
 
-self.addEventListener('fetch', function(event) {
-  event.respondWith(
-    fetch(event.request).catch(function() {
-      return caches.match(event.request);
-    })
-  );
+// NOTE: the fetch event is triggered for every request on the page. So for every individual CSS, JS and image file.
+self.addEventListener('fetch', (event) => {
+    // only respond if navigating for a HTML page
+    // see https://googlechrome.github.io/offline.html/service-worker/custom-offline-page/ for more details
+    if (event.request.mode === 'navigate' ||
+        (event.request.method === 'GET' && event.request.headers.get('accept').includes('text/html'))) {
+        event.respondWith(
+            // make sure the request we are making isn't in the cache
+            fetch(createCacheBustedRequest(event.request.url))
+                .then((response) =>{
+                    // if the response has a 404 code, serve the 404 page
+                    if(response.status === 404){
+                        return caches.match('/offline.html');
+                    } else {
+                        // check see if the response is in the cache, if not fetch it from the network
+                        return caches.match(event.request)
+                            .then((response) => response || fetch(event.request));
+                    }
+                })
+                // If catch is triggered fetch has thrown an exception meaning the server is most likely unreachable
+                .catch((error) => caches.match('/offline.html'))
+        );
+    } else {
+        // respond to all the other fetch events
+        event.respondWith(
+            caches.match(event.request)
+            // if the request is in the cache, send back the cached response. If not fetch from the network
+                .then((response) => response || fetch(event.request))
+        );
+    }
 });
 
 
 
-self.addEventListener('activate', function(event) {
-  event.waitUntil(
-    caches.keys().then(function(cacheNames) {
-      return Promise.all(
-        cacheNames.filter(function(cacheName) {
-          // Return true if you want to remove this cache,
-          // but remember that caches are shared across
-          // the whole origin
-        }).map(function(cacheName) {
-          return caches.delete(cacheName);
-        })
-      );
-    })
-  );
+self.addEventListener('activate', (event) => {
+    // extend the events lifetime until the promise resolves
+    event.waitUntil(
+        // return a Promise that resolves to an array of cache names
+        caches.keys()
+            .then((cacheNames) => {
+                // passes an array of values from all the promises in the iterable object
+                return Promise.all(
+                    // map over the cacheNames array
+                    cacheNames.map((cacheName) => {
+                        // if any existing caches don't match the current used cache, delete them
+                        if (currentCacheNames.indexOf(cacheName) === -1) {
+                            return caches.delete(cacheName);
+                        }
+                    })
+                );
+            })
+    );
 });
