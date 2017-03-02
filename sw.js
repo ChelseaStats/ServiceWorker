@@ -4,19 +4,9 @@
  * @type {string}
  */
 const CACHE_NAME = 'zero';
-
-/**
- * Version of the cache running.
- *
- * @type {string}
- */
 const CACHE_VERSION = 'v1.0.1';
-
-/**
- * Reference creted from `CACHE_NAME` and `CACHE_VERSION`.
- *
- * @type {string}
- */
+const OFFLINE_URL = 'offline.html';
+const FOUR_OH_FOUR_URL = '404.html';
 const CACHE_REF = CACHE_NAME + '::' + CACHE_VERSION;
 
 /**
@@ -76,7 +66,7 @@ const requestFromCache = (request) => {
             if (request.headers.get('Accept').indexOf('text/html') !== -1) {
                 // If a HTML request then we want to return the file from cache
                 // OR the `offline.html` file if `undefined`
-                return response || caches.match('/offline.html')
+                return response || caches.match(FOUR_OH_FOUR_URL)
             }
 
             // All other responses we can check if it's in the cache and return
@@ -136,7 +126,7 @@ self.addEventListener('fetch', (event) => {
                 .then((response) =>{
                     // if the response has a 404 code, serve the 404 page
                     if(response.status === 404){
-                        return caches.match('/offline.html');
+                        return caches.match(OFFLINE_URL);
                     } else {
                         // check see if the response is in the cache, if not fetch it from the network
                         return caches.match(event.request)
