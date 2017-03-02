@@ -1,18 +1,9 @@
-// Check to see if `serviceWorker` is present in the `navigator` object.
+// check see if your browser supports service workers
 if ('serviceWorker' in navigator) {
-
-    // Register our service worker file. It has to be an external file for
-    // certain lifecycles to occure.
     navigator.serviceWorker
-    .register('sw.js')
-    .catch(err => console.error('There is a problem registering the service worker', err));
-   
-        // These promises aren't required but provide dev feedback.
-        .then((registration) => {
-            console.log('ServiceWorker registered', registration)
-        })
-        .catch((error) => {
-            console.log('ServiceWorker failed', error);
-        });
-
+        // register the service worker script
+        .register('/sw.js')
+        // using promises tell us if successful or there was an error
+        .then(reg => {console.info('Service Worker registration successful: ', reg)})
+        .catch(err => {console.warn('Service Worker setup failed: ', err)});
 }
