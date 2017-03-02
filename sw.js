@@ -4,7 +4,7 @@
  * @type {string}
  */
 const CACHE_NAME = 'zero';
-const CACHE_VERSION = 'v1.0.1';
+const CACHE_VERSION = 'v1.0.2';
 const OFFLINE_URL = 'offline.html';
 const FOUR_OH_FOUR_URL = '404.html';
 const CACHE_REF = CACHE_NAME + '::' + CACHE_VERSION;
