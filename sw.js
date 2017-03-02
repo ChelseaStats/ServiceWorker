@@ -54,6 +54,7 @@ function createCacheBustedRequest(url) {
   if ('cache' in request) {
     return request;
   }
+}
     
     
 /**
