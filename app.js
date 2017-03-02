@@ -7,7 +7,6 @@ if ('serviceWorker' in navigator) {
     .register('sw.js')
     .catch(err => console.error('There is a problem registering the service worker', err));
     
-
         // These promises aren't required but provide dev feedback.
         .then((registration) => {
             console.log('ServiceWorker registered', registration)
