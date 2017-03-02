@@ -134,7 +134,7 @@ self.addEventListener('fetch', (event) => {
                     }
                 })
                 // If catch is triggered fetch has thrown an exception meaning the server is most likely unreachable
-                .catch((error) => caches.match('/offline.html'))
+                .catch((error) => caches.match(OFFLINE_URL))
         );
     } else {
         // respond to all the other fetch events
