@@ -10,7 +10,7 @@ const CACHE_NAME = 'zero';
  *
  * @type {string}
  */
-const CACHE_VERSION = 'v1.0.0';
+const CACHE_VERSION = 'v1.0.1';
 
 /**
  * Reference creted from `CACHE_NAME` and `CACHE_VERSION`.
@@ -32,9 +32,15 @@ const CACHE_FILES_PRIORITY = [
     'offline.html',
 ];
 
+/**
+ * Added to the cache in their own time.
+ *
+ * @type {string[]}
+ */
 const CACHE_FILES_BACKGROUND = [
-     'images/animated.gif'
- ];
+    'images/animated.gif'
+];
+
 
 /**
  * Update the cache with the files specified in `CACHE_FILES_PRIORITY`
@@ -131,4 +137,3 @@ self.addEventListener('fetch', function(event) {
 self.addEventListener('activate', event => {
     event.waitUntil(clearCache());
 });
-
