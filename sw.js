@@ -1,50 +1,25 @@
-/**
- * Name of the cache.
- *
- * @type {string}
- */
-const CACHE_NAME = 'zero';
-const CACHE_VERSION = 'v1.0.2';
-const OFFLINE_URL = 'offline.html';
-const FOUR_OH_FOUR_URL = '404.html';
-const CACHE_REF = CACHE_NAME + '::' + CACHE_VERSION;
+*
+ Copyright 2015 Google Inc. All Rights Reserved.
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+*/
 
-/**
- * Service worker will be installed when all these are cached.
- *
- * @type {string[]}
- */
-const CACHE_FILES_PRIORITY = [
-    '/',
-    'app.js',
-    'app.css',
-    'index.html',
-    'offline.html',
-];
+'use strict';
 
-/**
- * Added to the cache in their own time.
- *
- * @type {string[]}
- */
-const CACHE_FILES_BACKGROUND = [
-    'images/animated.gif'
-];
-
-
-/**
- * Update the cache with the files specified in `CACHE_FILES_PRIORITY`
- * and `CACHE_FILES_BACKGROUND` constants.
- *
- * @return {Promise}
- */
-const updateCache = () => {
-    return caches.open(CACHE_REF)
-        .then((cache) => {
-            cache.addAll(CACHE_FILES_BACKGROUND);
-            return cache.addAll(CACHE_FILES_PRIORITY)
-        });
+// Incrementing CACHE_VERSION will kick off the install event and force previously cached
+// resources to be cached again.
+const CACHE_VERSION = 1;
+let CURRENT_CACHES = {
+  offline: 'offline-v' + CACHE_VERSION
 };
+const OFFLINE_URL = 'offline.html';
 
 function createCacheBustedRequest(url) {
   let request = new Request(url, {cache: 'reload'});
@@ -54,126 +29,74 @@ function createCacheBustedRequest(url) {
   if ('cache' in request) {
     return request;
   }
+
+  // If {cache: 'reload'} didn't have any effect, append a cache-busting URL parameter instead.
+  let bustedUrl = new URL(url, self.location.href);
+  bustedUrl.search += (bustedUrl.search ? '&' : '') + 'cachebust=' + Date.now();
+  return new Request(bustedUrl);
 }
-    
-    
-/**
- * Any request that comes through we will be serving it from the cache.
- * If a request isn't in the cache, we serve `offline.html` instead.
- *
- * @return {Promise}
- */
-const requestFromCache = (request) => {
-
-    return caches.match(request)
-        .then(response => {
-            console.log(request);
-
-            if (request.method !== 'GET') {
-                return fetch(request);
-            }
-
-            if (request.headers.get('Accept').indexOf('text/html') !== -1) {
-                // If a HTML request then we want to return the file from cache
-                // OR the `offline.html` file if `undefined`
-                return response || caches.match(FOUR_OH_FOUR_URL)
-            }
-
-            // All other responses we can check if it's in the cache and return
-            // OR if `undefined` then return the request in hopes
-            // we get something
-            return response || fetch(request);
-        })
-        .catch(error => {
-            // If the `fetch()` function didn't work then we can deal with
-            // requests we cannot resolve.
-            if (request.headers.get('Accept').indexOf('image') !== -1) {
-                // If an image then we should return a placeholder.
-                // Using an SVG like this means we aren't relying on any
-                // external resource and provide feedback to the view.
-                return new Response(
-                    '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><text style="text-anchor: middle; font-family: sans-serif;" fill-opacity="0.25" x="50%" y="50%">image unavaliable offline</text></svg>',
-                    {headers: {'Content-Type': 'image/svg+xml'}}
-                );
-            }
-            return new Response();
-        });
-};
-
-
-/**
- * Clears the cache if the key is different to the one specfied
- * in `CACHE_REF`.
- *
- * @return {Promise}
- */
-const clearCache = () => {
-    return caches.keys()
-        .then(keys => {
-            return Promise.all(keys.map((key, i) => {
-                if (key !== CACHE_REF){
-                    return caches.delete(keys[i]);
-                }
-            }))
-        });
-};
-
 
 self.addEventListener('install', event => {
-    event.waitUntil(updateCache());
+  event.waitUntil(
+    // We can't use cache.add() here, since we want OFFLINE_URL to be the cache key, but
+    // the actual URL we end up requesting might include a cache-busting parameter.
+    fetch(createCacheBustedRequest(OFFLINE_URL)).then(function(response) {
+      return caches.open(CURRENT_CACHES.offline).then(function(cache) {
+        return cache.put(OFFLINE_URL, response);
+      });
+    })
+  );
 });
 
+self.addEventListener('activate', event => {
+  // Delete all caches that aren't named in CURRENT_CACHES.
+  // While there is only one cache in this example, the same logic will handle the case where
+  // there are multiple versioned caches.
+  let expectedCacheNames = Object.keys(CURRENT_CACHES).map(function(key) {
+    return CURRENT_CACHES[key];
+  });
 
-// NOTE: the fetch event is triggered for every request on the page. So for every individual CSS, JS and image file.
-self.addEventListener('fetch', (event) => {
-    // only respond if navigating for a HTML page
-    // see https://googlechrome.github.io/offline.html/service-worker/custom-offline-page/ for more details
-    if (event.request.mode === 'navigate' ||
-        (event.request.method === 'GET' && event.request.headers.get('accept').includes('text/html'))) {
-        event.respondWith(
-            // make sure the request we are making isn't in the cache
-            fetch(createCacheBustedRequest(event.request.url))
-                .then((response) =>{
-                    // if the response has a 404 code, serve the 404 page
-                    if(response.status === 404){
-                        return caches.match(OFFLINE_URL);
-                    } else {
-                        // check see if the response is in the cache, if not fetch it from the network
-                        return caches.match(event.request)
-                            .then((response) => response || fetch(event.request));
-                    }
-                })
-                // If catch is triggered fetch has thrown an exception meaning the server is most likely unreachable
-                .catch((error) => caches.match(OFFLINE_URL))
-        );
-    } else {
-        // respond to all the other fetch events
-        event.respondWith(
-            caches.match(event.request)
-            // if the request is in the cache, send back the cached response. If not fetch from the network
-                .then((response) => response || fetch(event.request))
-        );
-    }
+  event.waitUntil(
+    caches.keys().then(cacheNames => {
+      return Promise.all(
+        cacheNames.map(cacheName => {
+          if (expectedCacheNames.indexOf(cacheName) === -1) {
+            // If this cache name isn't present in the array of "expected" cache names,
+            // then delete it.
+            console.log('Deleting out of date cache:', cacheName);
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    })
+  );
 });
 
-
-
-self.addEventListener('activate', (event) => {
-    // extend the events lifetime until the promise resolves
-    event.waitUntil(
-        // return a Promise that resolves to an array of cache names
-        caches.keys()
-            .then((cacheNames) => {
-                // passes an array of values from all the promises in the iterable object
-                return Promise.all(
-                    // map over the cacheNames array
-                    cacheNames.map((cacheName) => {
-                        // if any existing caches don't match the current used cache, delete them
-                        if (currentCacheNames.indexOf(cacheName) === -1) {
-                            return caches.delete(cacheName);
-                        }
-                    })
-                );
-            })
+self.addEventListener('fetch', event => {
+  // We only want to call event.respondWith() if this is a navigation request
+  // for an HTML page.
+  // request.mode of 'navigate' is unfortunately not supported in Chrome
+  // versions older than 49, so we need to include a less precise fallback,
+  // which checks for a GET request with an Accept: text/html header.
+  if (event.request.mode === 'navigate' ||
+      (event.request.method === 'GET' &&
+       event.request.headers.get('accept').includes('text/html'))) {
+    console.log('Handling fetch event for', event.request.url);
+    event.respondWith(
+      fetch(event.request).catch(error => {
+        // The catch is only triggered if fetch() throws an exception, which will most likely
+        // happen due to the server being unreachable.
+        // If fetch() returns a valid HTTP response with an response code in the 4xx or 5xx
+        // range, the catch() will NOT be called. If you need custom handling for 4xx or 5xx
+        // errors, see https://github.com/GoogleChrome/samples/tree/gh-pages/service-worker/fallback-response
+        console.log('Fetch failed; returning offline page instead.', error);
+        return caches.match(OFFLINE_URL);
+      })
     );
+  }
+
+  // If our if() condition is false, then this fetch handler won't intercept the request.
+  // If there are any other fetch handlers registered, they will get a chance to call
+  // event.respondWith(). If no fetch handlers call event.respondWith(), the request will be
+  // handled by the browser as if there were no service worker involvement.
 });
